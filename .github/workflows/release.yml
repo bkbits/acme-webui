@@ -114,6 +114,8 @@ jobs:
       - name: Download binaries
         uses: actions/download-artifact@v4
         with:
+          # 只下载 4 个二进制，排除 web-dist，避免 web 构建产物混入 Release
+          pattern: acme-webui-.*
           path: artifacts
           merge-multiple: true
       - name: Verify all binaries present
