@@ -1,0 +1,10 @@
+/target/
+/data/
+/tmp/
+*.db
+*.db-wal
+*.db-shm
+web/node_modules/
+web/dist/*
+!web/dist/index.html
+nohup.out
