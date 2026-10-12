@@ -50,12 +50,12 @@ jobs:
           # Linux x86_64: cross 交叉编译（musl 静态链接）
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            artifact: acme-webui-linux-amd64.exe
+            artifact: acme-webui-linux-amd64
             use-cross: true
           # Linux ARM64: cross 交叉编译（musl 静态链接）
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            artifact: acme-webui-linux-arm64.exe
+            artifact: acme-webui-linux-arm64
             use-cross: true
     env:
       # 固定版本，避免 cross 新版本破坏构建（参照 ripgrep 的做法）
@@ -123,7 +123,7 @@ jobs:
         shell: bash
         run: |
           for f in acme-webui-win-amd64.exe acme-webui-win-arm64.exe \
-                   acme-webui-linux-amd64.exe acme-webui-linux-arm64.exe; do
+                   acme-webui-linux-amd64 acme-webui-linux-arm64; do
             [ -f "artifacts/$f" ] || { echo "缺少产物: $f" >&2; exit 1; }
           done
           ls -lh artifacts
