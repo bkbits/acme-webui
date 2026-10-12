@@ -1,0 +1,131 @@
+name: Release
+
+# 推送任意 tag 时构建 4 个平台产物并发布到 GitHub Release
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+
+jobs:
+  # 前端构建一次，产物传给各编译任务（rust-embed 编译期嵌入 web/dist）
+  web:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install & build
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Upload web/dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 1
+
+  build:
+    name: Build ${{ matrix.artifact }}
+    needs: web
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows x86_64: 原生构建
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: acme-webui-win-amd64.exe
+            use-cross: false
+          # Windows ARM64: ARM64 Windows runner 原生构建
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            artifact: acme-webui-win-arm64.exe
+            use-cross: false
+          # Linux x86_64: cross 交叉编译（musl 静态链接）
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact: acme-webui-linux-amd64.exe
+            use-cross: true
+          # Linux ARM64: cross 交叉编译（musl 静态链接）
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            artifact: acme-webui-linux-arm64.exe
+            use-cross: true
+    env:
+      # 固定版本，避免 cross 新版本破坏构建（参照 ripgrep 的做法）
+      CROSS_VERSION: v0.2.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download web/dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - name: Install cross
+        if: matrix.use-cross
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/cross-download"
+          mkdir -p "$dir"
+          echo "$dir" >> "$GITHUB_PATH"
+          curl -sSLo "$dir/cross.tar.gz" \
+            "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
+          tar -xzf "$dir/cross.tar.gz" -C "$dir"
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ matrix.use-cross }}" = "true" ]; then
+            cross build --release --target "${{ matrix.target }}"
+          else
+            cargo build --release --target "${{ matrix.target }}"
+          fi
+      - name: Collect binary
+        shell: bash
+        run: |
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            cp "target/${{ matrix.target }}/release/acme-webui.exe" "${{ matrix.artifact }}"
+          else
+            cp "target/${{ matrix.target }}/release/acme-webui" "${{ matrix.artifact }}"
+          fi
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          retention-days: 1
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Verify all binaries present
+        shell: bash
+        run: |
+          for f in acme-webui-win-amd64.exe acme-webui-win-arm64.exe \
+                   acme-webui-linux-amd64.exe acme-webui-linux-arm64.exe; do
+            [ -f "artifacts/$f" ] || { echo "缺少产物: $f" >&2; exit 1; }
+          done
+          ls -lh artifacts
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
