@@ -115,7 +115,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           # 只下载 4 个二进制，排除 web-dist，避免 web 构建产物混入 Release
-          pattern: acme-webui-.*
+          # 注意: v4 的 pattern 是 minimatch glob 语义（非 regex），* 为通配符
+          pattern: acme-webui-*
           path: artifacts
           merge-multiple: true
       - name: Verify all binaries present
