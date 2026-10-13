@@ -70,6 +70,36 @@ acme 证书自动申请续期服务平台。通过 Web 界面维护证书配置�
 - 未检测到 acme.sh 时 Web 界面会提示，点击可打开当前平台的安装指引（命令可一键复制，安装后可重新检测）
 - 从源码构建：Rust ≥ 1.80（`rustup`）、bun ≥ 1.1
 
+## 安装
+
+### 直接安装（推荐）
+
+一行命令安装最新版并注册为 systemd 服务（自动查询最新 Release、检测操作系统类型（linux / mac）与架构（amd64 / arm64），下载对应二进制）：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/bkbits/acme-webui/refs/heads/main/scripts/install.sh | sudo sh
+```
+
+脚本行为：
+
+1. 查询最新 Release 的 tag，校验当前平台对应的资产存在（不存在时列出可用资产）
+2. 下载二进制安装到 `/opt/acme-webui/acme-webui`
+3. 写入 `/etc/systemd/system/acme-webui.service` 并 `enable`（无 systemd 的环境仅写入 unit 并提示）
+
+安装完成后：
+
+```sh
+systemctl start acme-webui    # 启动服务（默认 0.0.0.0:6980）
+systemctl status acme-webui   # 查看状态
+```
+
+- 数据库位于 `/opt/acme-webui/data/acme-webui.db`（首次启动自动创建），默认账号 `admin / admin123`（登录后请及时修改密码）
+- 监听地址/端口可在安装时通过环境变量覆盖（经 `sudo env` 传入，避免被 sudo 重置环境）：
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/bkbits/acme-webui/refs/heads/main/scripts/install.sh | sudo env ACME_WEBUI_HOST=127.0.0.1 ACME_WEBUI_PORT=6980 sh
+  ```
+- 当前 Release 已发布 Linux 与 Windows 产物；安装脚本支持 Linux，macOS 产物暂未发布（可源码构建，见「快速开始」），Windows 直接从 [Release 页面](https://github.com/bkbits/acme-webui/releases) 下载 `.exe` 运行
+
 ## 快速开始
 
 ### 1. 源码运行（开发模式）
@@ -232,6 +262,7 @@ acme-webui/
 │       ├── router/ composables/ layouts/ views/ components/
 │       └── styles/index.scss
 └── scripts/
+    ├── install.sh          # 一键安装脚本（最新 Release + systemd 服务）
     ├── mock-acme.sh        # acme.sh 模拟器（测试用）
     └── e2e_test.py         # 端到端测试（43 项断言）
 ```
